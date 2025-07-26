@@ -8,32 +8,20 @@ class DMBroadcast(commands.Cog):
         self.bot = bot
         self.broadcast_channels = set()
         self.active_broadcasts = set()
-        self.cooldown = commands.CooldownMapping.from_cooldown(1, 300, commands.BucketType.guild)
+        self.cooldown = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.guild)  # 10 second cooldown
 
-    async def send_dm(self, member, message):
+    async def send_message(self, member, message):
         try:
-            embed = discord.Embed(
-                description=message.content,
-                color=discord.Color.blue(),
-                timestamp=message.created_at
-            )
-            embed.set_author(
-                name=f"Broadcast from {message.guild.name}", 
-                icon_url=message.guild.icon.url if message.guild.icon else None
-            )
-            
-            if message.attachments:
-                attachment = message.attachments[0]
-                if attachment.filename.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
-                    embed.set_image(url=attachment.url)
+            # Send exactly what was received (embed or regular message)
+            if message.embeds:
+                await member.send(embed=message.embeds[0])
+            else:
+                content = f"**From {message.guild.name}:**\n{message.content}"
+                if message.attachments:
+                    files = [await attachment.to_file() for attachment in message.attachments]
+                    await member.send(content=content, files=files)
                 else:
-                    embed.add_field(
-                        name="Attachment",
-                        value=f"[{attachment.filename}]({attachment.url})",
-                        inline=False
-                    )
-            
-            await member.send(embed=embed)
+                    await member.send(content=content)
             return True
         except discord.Forbidden:
             return False
@@ -76,10 +64,10 @@ class DMBroadcast(commands.Cog):
             message.channel.id in self.active_broadcasts):
             return
             
-        # Check cooldown
+        # Check 10-second cooldown
         bucket = self.cooldown.get_bucket(message)
         if bucket.update_rate_limit():
-            await message.channel.send("⚠️ Broadcasts are on cooldown (5 minutes between broadcasts)")
+            await message.channel.send("⚠️ Please wait 10 seconds between broadcasts", delete_after=5)
             return
             
         self.active_broadcasts.add(message.channel.id)
@@ -87,8 +75,8 @@ class DMBroadcast(commands.Cog):
         try:
             processing_msg = await message.channel.send("🔄 Starting DM broadcast to all members...")
             
-            # Get all non-bot members
-            members = [m for m in message.guild.members if not m.bot and m != message.author]
+            # Get ALL members including the sender
+            members = [m for m in message.guild.members if not m.bot]
             
             success = 0
             failed = 0
@@ -96,7 +84,7 @@ class DMBroadcast(commands.Cog):
             
             # Send DMs with rate limiting
             for i, member in enumerate(members, 1):
-                if await self.send_dm(member, message):
+                if await self.send_message(member, message):
                     success += 1
                 else:
                     failed += 1
@@ -106,25 +94,14 @@ class DMBroadcast(commands.Cog):
                     await processing_msg.edit(
                         content=f"📤 Progress: {i}/{total} members | ✅ {success} | ❌ {failed}"
                     )
-                    await asyncio.sleep(1)  # Rate limit protection
+                    await asyncio.sleep(0.5)  # Small delay to prevent rate limits
             
             # Final result
-            result_embed = discord.Embed(
-                title="Broadcast Complete",
-                description=f"Message sent to {success} members",
-                color=discord.Color.green()
-            )
-            result_embed.add_field(name="Successful", value=str(success))
-            result_embed.add_field(name="Failed", value=str(failed))
-            
+            result_msg = f"✅ Broadcast complete! Sent to {success} members"
             if failed > 0:
-                result_embed.color = discord.Color.orange()
-                result_embed.description += f" (failed for {failed} members)"
+                result_msg += f" (failed for {failed} members)"
             
-            await processing_msg.edit(
-                content=f"✅ Broadcast completed in {message.channel.mention}",
-                embed=result_embed
-            )
+            await processing_msg.edit(content=result_msg)
             
         except Exception as e:
             await message.channel.send(f"❌ Broadcast failed: {str(e)}")
