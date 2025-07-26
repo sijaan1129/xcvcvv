@@ -1,3 +1,11 @@
-py-cord
-flask
+discord.py
+motor
 python-dotenv
+Flask
+nest_asyncio
+aiohttp
+dnspython
+requests
+pytz
+googletrans==4.0.0-rc1
+feedparser
