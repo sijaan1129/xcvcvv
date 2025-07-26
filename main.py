@@ -6,10 +6,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from keep_alive import keep_alive
 
-from utils.mongo import get_guild_config 
-from utils import mongo 
-from cogs.verification import VerifyButtonView 
-
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 
