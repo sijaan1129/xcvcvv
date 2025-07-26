@@ -12,11 +12,13 @@ class DMBroadcast(commands.Cog):
 
     async def send_message(self, member, message):
         try:
-            # Send exactly what was received (embed or regular message)
+            # Send exactly what was received (embed or regular message) without server name
             if message.embeds:
-                await member.send(embed=message.embeds[0])
+                # Clone the embed to avoid modifying the original
+                embed = message.embeds[0]
+                await member.send(embed=embed)
             else:
-                content = f"**From {message.guild.name}:**\n{message.content}"
+                content = message.content  # No server name added
                 if message.attachments:
                     files = [await attachment.to_file() for attachment in message.attachments]
                     await member.send(content=content, files=files)
