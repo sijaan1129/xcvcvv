@@ -10,25 +10,22 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 MONGO_URI = os.getenv("MONGO_URI")
 
-# Critical intents configuration
 intents = discord.Intents.default()
-intents.members = True       # Required for member list
-intents.message_content = True  # Required to read messages
+intents.members = True
+intents.message_content = True
 intents.guilds = True
 intents.messages = True
 
 bot = commands.Bot(
     command_prefix=".",
     intents=intents,
-    chunk_guilds_at_startup=True,  # Ensures complete member cache
-    case_insensitive=True
+    chunk_guilds_at_startup=True
 )
 
-# Database connection
 async def connect_db():
     try:
         mongo_client = AsyncIOMotorClient(MONGO_URI)
-        await mongo_client.server_info()  # Test connection
+        await mongo_client.server_info()
         bot.mongo_client = mongo_client
         bot.db = mongo_client["aimbot"]
         print("✅ Connected to MongoDB.")
@@ -41,7 +38,6 @@ async def on_ready():
     print(f"✅ Connected to {len(bot.guilds)} guild(s)")
     print(f"✅ Serving {len(bot.users)} user(s)\n")
     
-    # Sync slash commands
     try:
         synced = await bot.tree.sync()
         print(f"🔁 Synced {len(synced)} slash command(s)")
