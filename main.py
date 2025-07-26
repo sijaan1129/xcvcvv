@@ -12,7 +12,6 @@ from cogs.verification import VerifyButtonView
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
-MONGO_URI = os.getenv("MONGO_URI")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -32,7 +31,7 @@ bot.remove_command("help")
 try:
     mongo_client = AsyncIOMotorClient(MONGO_URI)
     bot.mongo_client = mongo_client
-    bot.db = mongo_client["nexusec"]
+    bot.db = mongo_client["aimbot"]
     print("✅ Connected to MongoDB.")
 except Exception as e:
     print(f"❌ MongoDB connection failed: {type(e).__name__} - {e}")
@@ -40,7 +39,7 @@ except Exception as e:
 # On ready
 @bot.event
 async def on_ready():
-    await bot.change_presence(activity=discord.Game(name="/help | NexuSec"))
+    await bot.change_presence(activity=discord.Game(name="dev | aimbot"))
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
 
     try:
@@ -69,7 +68,7 @@ async def load_cogs():
     print("✅ All cogs loaded.")
 
 async def main():
-    print("🚀 Starting NexuSec...")
+    print("🚀 Starting aimbot...")
     keep_alive()
     async with bot:
         await load_cogs()
