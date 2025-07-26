@@ -44,7 +44,7 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Command sync failed: {type(e).__name__} - {e}")
 
-    await bot.change_presence(activity=discord.Game(name="/help"))
+    await bot.change_presence(activity=discord.Game(name="/dev by aimbot"))
 
 async def load_cogs():
     print("\n🔍 Loading cogs...")
