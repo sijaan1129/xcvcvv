@@ -15,7 +15,7 @@ intents.message_content = True
 intents.members = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix='/', intents=intents)
+bot = discord.Bot(intents=intents)
 
 # File to store channel configurations
 CONFIG_FILE = 'bot_config.json'
@@ -48,13 +48,13 @@ async def on_ready():
     activity = discord.Activity(type=discord.ActivityType.watching, name="for broadcast messages | /set-channel")
     await bot.change_presence(activity=activity)
 
-@bot.command()
+@bot.slash_command(name="set-channel", description="Set the channel for broadcasting messages to all members")
 async def set_channel(ctx, channel: discord.TextChannel):
     """Set the broadcast channel for a server"""
     
     # Check permissions
     if not ctx.author.guild_permissions.administrator:
-        await ctx.send("❌ You need administrator permissions to use this command!", delete_after=10)
+        await ctx.respond("❌ You need administrator permissions to use this command!", ephemeral=True)
         return
     
     guild_id = str(ctx.guild.id)
@@ -82,20 +82,20 @@ async def set_channel(ctx, channel: discord.TextChannel):
         inline=False
     )
     
-    await ctx.send(embed=embed)
+    await ctx.respond(embed=embed)
 
-@bot.command()
+@bot.slash_command(name="remove-channel", description="Remove the current broadcast channel")
 async def remove_channel(ctx):
     """Remove the broadcast channel setting"""
     
     if not ctx.author.guild_permissions.administrator:
-        await ctx.send("❌ You need administrator permissions to use this command!", delete_after=10)
+        await ctx.respond("❌ You need administrator permissions to use this command!", ephemeral=True)
         return
     
     guild_id = str(ctx.guild.id)
     
     if guild_id not in config or 'broadcast_channel' not in config[guild_id]:
-        await ctx.send("❌ No broadcast channel is currently set!", delete_after=10)
+        await ctx.respond("❌ No broadcast channel is currently set!", ephemeral=True)
         return
     
     # Remove the broadcast channel
@@ -110,9 +110,9 @@ async def remove_channel(ctx):
         color=discord.Color.orange()
     )
     
-    await ctx.send(embed=embed)
+    await ctx.respond(embed=embed)
 
-@bot.command()
+@bot.slash_command(name="info", description="Show current bot configuration and stats")
 async def info(ctx):
     """Display bot information and current settings"""
     guild_id = str(ctx.guild.id)
@@ -168,23 +168,23 @@ async def info(ctx):
     
     embed.set_footer(text="Made with ❤️ for easy server communication")
     
-    await ctx.send(embed=embed)
+    await ctx.respond(embed=embed)
 
-@bot.command()
-async def test(ctx, *, message: str = "🧪 This is a test broadcast message!"):
+@bot.slash_command(name="test", description="Send a test broadcast message (Admin only)")
+async def test_broadcast(ctx, message: str = "🧪 This is a test broadcast message!"):
     """Test the broadcast functionality"""
     
     if not ctx.author.guild_permissions.administrator:
-        await ctx.send("❌ Only administrators can use this command!", delete_after=10)
+        await ctx.respond("❌ Only administrators can use this command!", ephemeral=True)
         return
     
     guild_id = str(ctx.guild.id)
     
     if guild_id not in config or 'broadcast_channel' not in config[guild_id]:
-        await ctx.send("❌ No broadcast channel set! Use `/set-channel` first.", delete_after=10)
+        await ctx.respond("❌ No broadcast channel set! Use `/set-channel` first.", ephemeral=True)
         return
     
-    msg = await ctx.send("🧪 Sending test broadcast...")
+    await ctx.respond("🧪 Sending test broadcast...", ephemeral=True)
     
     # Broadcast the test message
     success_count, fail_count = await broadcast_message(ctx.guild, message, ctx.author)
@@ -207,7 +207,7 @@ async def test(ctx, *, message: str = "🧪 This is a test broadcast message!"):
             inline=False
         )
     
-    await msg.edit(content="", embed=embed)
+    await ctx.followup.send(embed=embed)
 
 async def broadcast_message(guild, message_content, author):
     """Broadcast a message to all members in the guild"""
@@ -376,7 +376,7 @@ async def on_command_error(ctx, error):
     )
     
     try:
-        await ctx.send(embed=embed, delete_after=30)
+        await ctx.respond(embed=embed, ephemeral=True)
     except:
         pass
 
