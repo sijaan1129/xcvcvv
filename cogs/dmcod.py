@@ -31,19 +31,30 @@ class DMBroadcast(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        # Ignore messages from bots and messages not in guilds
-        if message.author.bot or not message.guild or message.channel.id not in self.broadcast_channels:
+        # Ignore if message is from a bot or not in a guild
+        if message.author.bot or not message.guild:
+            return
+            
+        # Check if message is in a broadcast channel
+        if message.channel.id not in self.broadcast_channels:
             return
             
         # Don't process commands
         ctx = await self.bot.get_context(message)
         if ctx.valid:
             return
-            
-        # Get all members in the guild
-        members = message.guild.members
-        
+
+        # Fetch all members (this ensures we have up-to-date member list)
+        try:
+            members = [member async for member in message.guild.fetch_members()]
+        except:
+            members = message.guild.members
+
         # Send DM to each member
+        success = 0
+        failed = 0
+        processing_message = await message.channel.send("📤 Sending messages to all members...")
+
         for member in members:
             if member.bot or member == message.author:
                 continue
@@ -51,21 +62,32 @@ class DMBroadcast(commands.Cog):
             try:
                 embed = discord.Embed(
                     description=message.content,
-                    color=discord.Color.blue()
+                    color=discord.Color.blue(),
+                    timestamp=message.created_at
                 )
-                embed.set_author(name=f"{message.author.display_name} (from {message.guild.name})", 
-                               icon_url=message.author.display_avatar.url)
+                embed.set_author(
+                    name=f"{message.author.display_name} (from {message.guild.name})", 
+                    icon_url=message.author.display_avatar.url
+                )
                 
-                # Attach any attachments
+                # Add any attachments
                 if message.attachments:
-                    embed.set_image(url=message.attachments[0].url)
-                    
+                    attachment = message.attachments[0]
+                    if attachment.url.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
+                        embed.set_image(url=attachment.url)
+                    else:
+                        embed.add_field(name="Attachment", value=f"[{attachment.filename}]({attachment.url})", inline=False)
+                
                 await member.send(embed=embed)
+                success += 1
             except discord.Forbidden:
-                # Can't send DM to this user
-                pass
+                failed += 1  # User has DMs disabled
             except Exception as e:
+                failed += 1
                 print(f"Failed to send DM to {member}: {e}")
+
+        # Update with results
+        await processing_message.edit(content=f"✅ Messages sent successfully to {success} members. Failed to send to {failed} members.")
 
 async def setup(bot):
     await bot.add_cog(DMBroadcast(bot))
