@@ -8,123 +8,90 @@ from keep_alive import keep_alive
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
-MONGO_URI = os.getenv("MONGO_URI")  # Added this line to get MongoDB URI from env
+MONGO_URI = os.getenv("MONGO_URI")
 
-# Enhanced intents configuration
-intents = discord.Intents.all()  # Changed to .all() to ensure all required intents are enabled
-intents.typing = False  # Disable unnecessary intents
-intents.presences = False
-intents.dm_typing = False
-intents.dm_reactions = False
+# Critical intents configuration
+intents = discord.Intents.default()
+intents.members = True       # Required for member list
+intents.message_content = True  # Required to read messages
+intents.guilds = True
+intents.messages = True
 
-async def get_prefix(bot, message):
-    if not message.guild:
-        return "."
-    # Make sure get_guild_config is defined or imported
-    config = await get_guild_config(str(message.guild.id))
-    return config.get("prefix", ".")
-
-# Initialize bot with proper settings
 bot = commands.Bot(
-    command_prefix=get_prefix,
+    command_prefix=".",
     intents=intents,
-    activity=discord.Activity(type=discord.ActivityType.watching, name="for commands"),
-    status=discord.Status.online
+    chunk_guilds_at_startup=True,  # Ensures complete member cache
+    case_insensitive=True
 )
-bot.remove_command("help")
 
-# Database connection with better error handling
+# Database connection
 async def connect_db():
     try:
-        mongo_client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        mongo_client = AsyncIOMotorClient(MONGO_URI)
         await mongo_client.server_info()  # Test connection
         bot.mongo_client = mongo_client
         bot.db = mongo_client["aimbot"]
         print("✅ Connected to MongoDB.")
     except Exception as e:
         print(f"❌ MongoDB connection failed: {type(e).__name__} - {e}")
-        # Exit if database is critical for your bot
-        # sys.exit(1)
 
-# Enhanced on_ready event
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
-    print(f"✅ Connected to {len(bot.guilds)} guilds")
+    print(f"\n✅ Logged in as {bot.user} (ID: {bot.user.id})")
+    print(f"✅ Connected to {len(bot.guilds)} guild(s)")
+    print(f"✅ Serving {len(bot.users)} user(s)\n")
     
-    # Sync slash commands with retry logic
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            synced = await bot.tree.sync()
-            print(f"🔁 Synced {len(synced)} slash commands (attempt {attempt + 1}/{max_retries})")
-            break
-        except Exception as e:
-            print(f"❌ Sync failed (attempt {attempt + 1}): {type(e).__name__} - {e}")
-            if attempt == max_retries - 1:
-                print("⚠️ Could not sync slash commands")
-            await asyncio.sleep(2)
+    # Sync slash commands
+    try:
+        synced = await bot.tree.sync()
+        print(f"🔁 Synced {len(synced)} slash command(s)")
+    except Exception as e:
+        print(f"❌ Command sync failed: {type(e).__name__} - {e}")
 
-    print("------")
+    await bot.change_presence(activity=discord.Game(name="/help"))
 
-# Improved cog loading with retries
 async def load_cogs():
-    print("🔍 Loading cogs...")
+    print("\n🔍 Loading cogs...")
     if not os.path.exists("cogs"):
         os.makedirs("cogs")
-        print("📁 Created 'cogs' folder.")
+        print("📁 Created 'cogs' directory")
 
-    retry_count = 2
-    loaded_cogs = 0
-    
+    loaded = 0
     for filename in os.listdir("./cogs"):
         if filename.endswith(".py") and not filename.startswith('_'):
-            cog_name = filename[:-3]
-            for attempt in range(retry_count + 1):
-                try:
-                    await bot.load_extension(f"cogs.{cog_name}")
-                    print(f"✅ Loaded: {filename}")
-                    loaded_cogs += 1
-                    break
-                except Exception as e:
-                    if attempt == retry_count:
-                        print(f"❌ Failed to load {filename} after {retry_count} attempts: {type(e).__name__} - {e}")
-                    else:
-                        print(f"⚠️ Retrying {filename}... (attempt {attempt + 1})")
-                        await asyncio.sleep(1)
+            try:
+                await bot.load_extension(f"cogs.{filename[:-3]}")
+                print(f"✅ Loaded: {filename}")
+                loaded += 1
+            except Exception as e:
+                print(f"❌ Failed to load {filename}: {type(e).__name__} - {e}")
     
-    print(f"✅ Loaded {loaded_cogs} cogs successfully")
+    print(f"\n✅ Successfully loaded {loaded} cog(s)")
 
-# Main function with proper cleanup
 async def main():
-    print("🚀 Starting bot...")
+    print("\n🚀 Starting bot...")
     keep_alive()
     
-    # Connect to database first
     await connect_db()
     
-    # Load cogs and start bot
     async with bot:
         await load_cogs()
         try:
             await bot.start(TOKEN)
-        except discord.LoginFailure:
-            print("❌ Invalid bot token")
         except KeyboardInterrupt:
-            print("🛑 Bot stopped by user")
+            print("\n🛑 Bot stopped by user")
         except Exception as e:
-            print(f"💥 Fatal error: {type(e).__name__} - {e}")
+            print(f"\n💥 Fatal error: {type(e).__name__} - {e}")
         finally:
             if hasattr(bot, 'mongo_client'):
                 await bot.mongo_client.close()
-                print("🛑 MongoDB connection closed.")
+                print("🛑 Closed MongoDB connection")
             print("🛑 Bot shutdown complete")
 
-# Error handling for the main loop
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("🛑 Process interrupted")
+        print("\n🛑 Process interrupted")
     except Exception as e:
-        print(f"💥 Critical error in main loop: {type(e).__name__} - {e}")
+        print(f"\n💥 Critical error: {type(e).__name__} - {e}")
